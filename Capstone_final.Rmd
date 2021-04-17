@@ -1,16 +1,18 @@
 ---
-title: "Capstone.Rmd"
-author: "Werner Dassuncao"
+title: "Capstone Project - Data Science Professional Certificate"
+author: "Werner Alencar Advincula Dassuncao"
 date: "`r Sys.Date()`"
 output:
-  pdf_document:
+  pdf_document: 
     toc: yes
-    dev: "png"
+    dev: jpeg
+    keep_tex: yes
+    latex_engine: lualatex
 ---
 
 ```{r config_chunk, echo = FALSE, warning=FALSE, message=FALSE}
-# Adjust the size of the output to 80 % when creating the pdf.
-knitr::opts_chunk$set(out.width = '80%') 
+# # Adjust the size of the output to 80 % when creating the pdf.
+#knitr::opts_chunk$set(out.width = '80%') 
 ```
 
 # Introduction
@@ -28,7 +30,7 @@ Next will dive into two models for the machine learning section. The first will 
 
 The packages bellow will be installed automatically, if necessary. 
 
-```{r, warning=FALSE, message=FALSE, warning = FALSE}
+```{r install packages, include = FALSE, echo = FALSE, warning=FALSE, message=FALSE}
 if(!require(tidyverse)) install.packages('tidyverse', repos = 'http://cran.us.r-project.org')
 if(!require(kableExtra)) install.packages('kableExtra', repos = 'http://cran.us.r-project.org')
 if(!require(gridExtra)) install.packages('gridExtra', repos = 'http://cran.us.r-project.org')
@@ -43,6 +45,10 @@ if(!require(clue)) install.packages('clue', repos = 'http://cran.us.r-project.or
 if(!require(devtools)) install.packages('devtools', repos = 'http://cran.us.r-project.org')
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install("ComplexHeatmap")
+```
+
+
+```{r, warning=FALSE, message=FALSE}
 library(devtools)
 library(tidyverse)
 library(kableExtra)
@@ -124,7 +130,7 @@ Let's continue by looking into a sample row using the *slice_sample()* on the da
 slice_sample(data) # %>% kable()
 ```
 
-## Description of features
+## Description of the features
 
 --------------------------------------------------------------------------
 
@@ -240,12 +246,14 @@ p3 <- data %>% mutate( type = factor(type, levels = c('DEBIT','PAYMENT','CASH_IN
 
 According to the plot *Frequency of transaction by type*, the transaction CASH-OUT is the most used, closely followed by PAYMENT. DEBIT is the least used transaction.  The *Transactions per average amount* plot displays the transactions sorted by average amount, TRANSFER has the highest average, while CASH-IN and CASH-OUT have similar averages.
 
-```{r types plots 1 & 2, echo = FALSE, warning=FALSE, message=FALSE, fig.cap='Distribution by frequency and averate amount of transactions', fig.width=12}
+```{r types plots 1 & 2, echo = FALSE, warning=FALSE, message=FALSE, fig.cap='Distributions by transactional frequency and average amount', fig.width=12}
 grid.arrange(p1, p2, nrow = 1)
 ```
+
+
 The plot *Boxplot of transactions by type* shows the data distribution of each transaction type side-by-side and their quick summaries, the box in the middle indicates 'hinges' (close to first and third quartiles) and median in the center of the box. Outliers are displayed as points above and bellow the center box.
 
-```{r types plot 3, echo = FALSE, warning=FALSE, message=FALSE, fig.cap='Box plot of transactions by amount', fig.width=12}
+```{r types plot 3, echo = FALSE, warning=FALSE, message=FALSE, fig.cap='Box plot of transactions by type', fig.width=12}
 p3
 ```
 
@@ -388,8 +396,6 @@ flagged <- data %>% filter( isFlaggedFraud == 1 )
 not_flagged <- data %>% filter( isFlaggedFraud == 0)
 ```
 
-Exploring further we can ask the data the following questions: Are there multiple transactions by the same origin flagged as fraud?
-Answer: `r subset(flagged, nameOrig %in% paste(not_flagged$nameOrig, not_flagged$nameDest))`. Are there transactions initiated by a destination account flagged as fraud? Answer: `r subset(flagged, nameDest %in% not_flagged$nameOrig)`. Are there multiple transactions where the destination account was flagged? Answer: `r subset(flagged, nameDest %in% not_flagged$nameDest)`.
 
 ```{r questions flagged, include = FALSE, echo = FALSE, warning = FALSE, message = FALSE}
 print('Are there multiple transactions by the same origin flagged as fraud?')
@@ -413,8 +419,10 @@ Do *oldbalanceOrig*, *newbalanceOrig*, *oldbalanceDest* and *newbalanceDest* exp
 The total number of transactions where isFlaggedFraud is set is equal the number of transactions where old and new balances for origin and destination accounts, as shown on table *All cases where the isFlaggedFraud is set*.
 
 ```{r flagged transactions, echo = FALSE, warning = FALSE}
+print('All cases where the isFlaggedFraud is set')
 flagged %>% filter(oldbalanceDest == newbalanceDest,
-                   oldbalanceOrg == newbalanceOrig)  %>% kable(caption = 'All cases where the isFlaggedFraud is set')
+                   oldbalanceOrg == newbalanceOrig)  
+#%>% kable(caption = 'All cases where the isFlaggedFraud is set')
 ```
 
 ```{r removing unused objects, echo = FALSE, warning = FALSE}
@@ -512,12 +520,12 @@ In the case of the origin accounts we observe the presence of several cases of z
 
 ## Creating new variables
 
-On this dataset we have information about the balance for the origin and destination accounts. We will leverage this data by creating two new features: *balance_error_orig* and *balance_error_dest*, since the balance values might help us to identify fraudulent transactions. The calculation of value of these new features is: 'new balance' + 'amount' - 'old balance' = 'balance_error'. 
+On this dataset we have information about the balance for the origin and destination accounts. We will leverage this data by creating two new features: *balance_error_orig* and *balance_error_dest*, since the balance values might help us to identify fraudulent transactions. The calculation for these new features is: 'new balance' + 'amount' - 'old balance' = 'balance_error'. 
 
 
 ## Visualizations
 
-Since our goal is to identify the fraud cases and we have learned from the data that only TRANSFER and CASH_OUT transactions are possible cases, we will filter the data to include only these observations. Next we will create vizualizations and try to 'see' a difference between legitimate and fraudulent transactions. Starting with the transaction amount, we have the plot *Dispersion of transactions over amount*. We can observe that the dispersion over amount is not conclusive given that the same values occur both in legitimate and fraudulent transactions. Worth noting the for fraud cases the amount seems restricted evenly between transfers and cash_outs in lower range. On the other hand for legitimate transactions, cash_outs operations have very small amounts compared to the legitimate transfers.
+Since our goal is to identify the fraud cases and we have learned from the data that only TRANSFER and CASH_OUT transactions are possible cases, we will filter the data to include only these observations. Next we will create vizualizations and try to 'see' a difference between legitimate and fraudulent transactions. Starting with the transaction amount, we have the plot *Dispersion of transactions over amount*. We can observe that the dispersion over amount is not conclusive given that the same values occur both in legitimate and fraudulent transactions. Worth noting the for fraud cases the amount seems restricted evenly between transfers and cash_outs in the lower range. On the other hand for legitimate transactions, cash_outs operations have very small amounts compared to the legitimate transfers.
 
 ```{r amount plot, echo = FALSE, warning = FALSE, fig.cap= 'Dispersion of transactions over amount'}
 #plot a custom graph with data from X and Y
@@ -612,11 +620,11 @@ The comparison of the heatmaps allows us to observe a stronger correlation betwe
 
 The use the same source data for both use machine learning techniques to make our predictions. Considering the fact that Support Vector Machines and eXtreme Gradient Boosting algorithms *look at* and *process* the data differently we will adjust the train set to fit each individual model's requirements so that we can achieve our goal.  We will create a X, dataframe, that contains all features to be used during the training, testing and validation of the algorithm and Y, numeric vector, with the legend for all of these observations.
 
-The distribution of classes in the dataset is extremely important. There is a extreme skew on the data, meaning that from our two possible classes (fraud and not-fraud) over 99% of the data belongs to the majority class (not-fraud). For the SVM we will use a downSample() approach to create proportionally distributed sets from both classes and enhance performance (by reducing the number of fraud transactions) by reducing the computational cost. On the other hand the XGBoost by nature is much more suited to handle imbalanced data sets. More details about the models in the following sections.
+The distribution of classes in the dataset is extremely important. There is an extreme skew on the data, meaning that from our two possible classes (fraud and not-fraud) over 99% of the data belongs to the majority class (not-fraud). For the SVM we will use a downSample() approach to create proportionally distributed sets from both classes and enhance performance (by reducing the number of fraud transactions) by reducing the computational cost. On the other hand the XGBoost by nature is much more suited to handle imbalanced data sets. More details about the models in the following sections.
 
 ## Validation data
 
-We will select 10% of the data to create our validation set. This set will be used to verify the performance of our final model on completely unknown data. For this we will use the function createDataPartition() from the *Caret* package. We define which feature will be the *target feature*, in our case, the *isFraud* variable. The following parameters are *time* which determines the number of partitions to create; *proportion* will be our desired ratio: 10%, *list* sets to FALSE determines that we want our outcome as a matrix with number of rows equal to *floor(p * length(y))* and 'times' columns. The output of createDataPartition is a logical vector for the validation set which we use to filter the whole dataset. The remaining set with 90% of the data can be filtered out by using its inverse index. 
+We will select 10% of the data to create our validation set. This set will be used to verify the performance of our final model on completely unknown data. For this we will use the function createDataPartition() from the *Caret* package. We define which feature will be the *target feature*, in our case, the *isFraud* variable. The following parameters are *time* which determines the number of partitions to create; *proportion* will be our desired ratio: 10%, the *list* parameter set to FALSE determines that we want our outcome as a matrix with number of rows equal to *floor(p \* length(y))* and 'times' columns. The output of createDataPartition is a logical vector for the validation set which we use to filter the whole dataset. The remaining set with 90% of the data can be filtered out by using its inverse index. 
 
 ## Train and Test data
 
@@ -630,7 +638,7 @@ The 3 main steps:
 
   1. We will train (or learn) our models using the train data and provide its corresponding legends: *Fraud* (y == 1) and *not-Fraud* (y == 0). The positive class will be y == 1.
 
-  2. Next we test our model, providing the test data (from X) and comparing our model's predictions with the corresponding legends (actual legends) from Y. Here we have a chance to go back to step 1 (model training) and adjust parameters to try to achieve better prediction results. Once, the results are satisfactory we will move on to step 3. Since our model is making predictions on a binary classification problem, our prediction accuracy will be used to compare the models. If the results are not satisfactory on step 2 we return to step one with different parameters. 
+  2. Next we test our model, providing the test data (from X) and comparing our model's predictions with the corresponding legends (actual legends) from Y. Here we have a chance to go back to step 1 (model training) and adjust parameters to try to achieve better prediction results. Once the results are satisfactory, we will move on to step 3. Since our model is making predictions on a binary classification problem, our prediction accuracy will be used to compare the models. If the results are not satisfactory on step 2 we return to step one with different parameters. 
 
   3. Finally we check the models performance on our final hold-out-set (validation set) to do a additional prediction test. Note that the validation data was not used during training of either model.
 
@@ -641,7 +649,7 @@ The 3 main steps:
 
 Support Vector Machines from package 'e1071' is one of the most robust prediction methods and are based on statistical learning frameworks. Given a set of training examples labeled as one of two categories (fraud or not-fraud), it maps these examples as points in space so that the gap between these two categories is maximized.  The new examples (test set) are then mapped to that same space and their categories are predicted based on what side of the gap between the categories the points fall.
 
-In SVM, a data point is viewed as a *p*-dimensional vector (p is the number of features), the objective is to separate the data points using a (p -1)-dimensional hyperplane, in other words, be able to determine a *new* data point without having the label for the class (our *isFraud* variable).
+In SVM, a data point is viewed as a *p*-dimensional vector (p is the number of features), the objective is to separate the data points using a (p -1)-dimensional hyperplane, in other words, be able to determine what class a *new* data point belongs to without having the label for the its class (the value of our *isFraud* variable).
 
 Our first order of business will be to use the downSample() function from the Caret package. This *down-sampling* randomly samples the majority class (isFraud == 0) to be the same size as the second class (isFraud == 1), in this case the minority class. This greatly reduces the total number of observations, but is less computationally expensive. The number of examples from the output of the downSample() function can be seen on table *Output of the downSample function*. We can see that there is an equivalent number of observations for each class.
 
@@ -737,7 +745,12 @@ results <- tibble(model = 'SVM', kernel = 'linear', data = 'test_set',
                   specificity = CM_SVM$byClass[1])
 ```
 
-Our SVM model with linear kernel achieved this performance: `r CM_SVM`
+Our SVM model with linear kernel achieved this performance: 
+
+```{r}
+# Confusion matrix for the SVM linear model on test set
+CM_SVM
+```
 
 ```{r SVM polynomial best tune, echo = FALSE, warning = FALSE, message = FALSE}
 # Tunning of model SVM - kernel: polynomial')
@@ -783,6 +796,7 @@ results <- rbind(results,
 
 ```{r SVM validation performance, echo = FALSE, warning = FALSE, message = FALSE}
 # testing performance on VALIDATION data
+
 # SVM linear - make predictions on validation set
 pred_valid <- predict(model_svm, newdata = svm_validation_set[,-ncol(svm_d)])  # make predictions with validation data
 # Confusion matrix
@@ -794,7 +808,8 @@ results <- rbind(results,
                         specificity = CM_SVM_val$byClass[1]))
 
 # SVM polynomial - make predictions on validation set
-pred_valid_poly <- predict(model_svm_poly, newdata = svm_validation_set[,-ncol(svm_d)])  # make predictions with validation data
+pred_valid_poly <- predict(model_svm_poly, newdata = svm_validation_set[,-ncol(svm_d)])  
+
 # Confusion matrix
 CM_SVM_val_poly <- confusionMatrix(pred_valid_poly, svm_validation_set[,ncol(svm_d)], 
                               positive = '1') # the confusion matrix
@@ -812,7 +827,12 @@ results %>% kable(caption = 'SVM Results')
 The table *SVM Results* shows the results of the Linear and Polynomial SVM kernels when making predictions on the test set as well as on the validation set. The SVM kernels performed quite well in both test and validation sets, but the *Polynomial* kernel performed much better overall with accuracy of `r CM_SVM_val_poly$overall[1]` on the validation set. The linear kernel performed with accuracy of `r CM_SVM_val$overall[1]`. The table also includes information on the **sensitivity** (also known as Recall) which measures the ratio of actual positive cases that were correctly predicted and the **specificity** which displays the proportion of actual negative cases which were correctly predicted.
 
 Confusion matrix for the predictions for the validation set: 
-`r CM_SVM_val_poly`
+
+
+```{r CM SVM polynomial}
+# Confusion matrix for the SVM polynomial model on test set
+CM_SVM_val_poly
+```
 
 
 ## eXtreme Gradient Boosting (XGBoost)
@@ -843,17 +863,18 @@ The trees are composed of *internal nodes* which splits the data points by one o
 We observed that cases where isFraud is set to 1, for the most part also have *oldbalanceOrig* == 0 and  *newbalanceOrig* == 0. We include a NA value on these cases to increase the separation between legitimate and fraudulent transactions. This was not useful for the SVM since it does not operate with observations with NA values (can't compute distances between a vector/data_point and a 'NA' object), but the XGBoost model does since one of the nodes of the tree could be based on a value or NA to choose a left or right branch on that tree.  The larger the number of such distinctions on our data the higher the chances to make better predictions.
 
 ```{r create validation set at 10% ratio, echo = FALSE, message = FALSE, warning=FALSE}
-
 # A way to improve the ML training would be to replace these values with NA.
-
 # replacing with NA's where there is a high chance of fraud
 # filter the dataframe, then select the columns to update, lastly define the desired value (NA)
 X[which( X$oldbalanceOrig == 0 & X$newbalanceOrig == 0 & X$amount != 0 ), 
   names(X) %in% c('oldbalanceOrig','newbalanceOrig') ] <- NA
 
+
 # Setting a fixed see to enable reproducibility of the results.
-# Join X and Y to make a balanced split of the data for validation set. Force all features to numeric type.
-d <- cbind(X,isFraud = Y)
+# Join X and Y to make a balanced split of the data for validation set. 
+d <- cbind( X, isFraud = Y )
+
+# Force all features to numeric type.
 d <- d %>% mutate(step = as.numeric(step),
                  type = as.numeric(type),
                  isFraud = as.numeric(isFraud))
@@ -901,19 +922,19 @@ For the predictions, the evaluation will regard the instances with prediction va
 The XGBoost has a cross-validation function that help us to fine tune the nrounds (numer of iterations) to achieve better results.
 
 
-### xgb.cv: Cross Validation function of xgboost
+xgb.cv: Cross Validation function of xgboost
 
 ----------------------------------------------
 
-We will use cross-validation to find the optimal value of the *nrounds* parameter, here we find the settings.
 
-*data* takes an xgb.DMatrix, matrix, or dgCMatrix as the input.
 
-*nfold* the original dataset is randomly partitioned into n-fold equal size subsamples.
-
-*nrounds* the max number of iterations
-
-*Maximize* If feval and early_stopping_rounds are set, then this parameter must be set as well. When it is TRUE, it means the larger the evaluation score the better. This parameter is passed to the cb.early.stop callback.
+    *data* takes an xgb.DMatrix, matrix, or dgCMatrix as the input.
+    
+    *nfold* the original dataset is randomly partitioned into n-fold equal size subsamples.
+    
+    *nrounds* the max number of iterations
+    
+    *Maximize* If feval and early_stopping_rounds are set, then this parameter must be set as well. When it is TRUE, it means the larger the evaluation score the better. This parameter is passed to the cb.early.stop callback.
 
 ----------------------------------------------
 
@@ -965,14 +986,16 @@ xgb_model = xgb.train(data = Dtrain,
                       nrounds = 21)   # 21 best value from Cross-Valid
 ```
 
-The prefered format for the input data is xgb.DMatrix, so we start out by converting our data to this format. Next we determine all the initial parameters and call the xgb.cv() function. With the nrounds defined we are finally able to train the model. After the training we can view the information by typing the name of the model on the console:  `r xgb_model`
+The preferred format for the input data is xgb.DMatrix, so we start out by converting our data to this format. Next we determine all the initial parameters and call the xgb.cv() function. With the nrounds defined we are finally able to train the model. After the training we can view the information by typing the name of the model on the console.
 
-```{r xgboost model info, include = FALSE}
+```{r xgboost model info, echo = TRUE}
 # Display Xgb model info
 xgb_model
 ```
 
 It is possible to visually inspect the importance of each feature by calling the *xgb.plot.importance()* function. The figure *XGBoost feature importance plot* has the output of this function.  
+
+
 
 ```{r importance xgboost, echo = FALSE, warning = FALSE, message = FALSE, fig.cap='XGBoost feature importance plot' }
 # Name of the features used by the model
@@ -986,15 +1009,16 @@ var_imp = xgb.importance( feature_names = names,
 xgb.plot.importance(var_imp)
 ```
 
+
 ```{r tree xgboost, include = FALSE, echo = FALSE, fig.cap='Structure of the first tree of the XGBoost model'}
-# Display the first tree
-xgb_tree <- xgb.plot.tree(model = xgb_model, trees = 0, 
-                          show_node_id = TRUE, render = FALSE)
-# # show the first tree of the model
+# # Display the first tree
+# xgb_tree <- xgb.plot.tree(model = xgb_model, trees = 0, 
+#                           show_node_id = TRUE, render = FALSE)
+# # # show the first tree of the model
 # xgb_tree
-library(DiagrammeR)
-# export to pdf
-export_graph(xgb_tree, 'tree.pdf')
+# library(DiagrammeR)
+# #export to pdf
+# export_graph(xgb_tree, 'tree.pdf')
 # knitr::include_graphics('tree.pdf')
 ```
 
@@ -1063,8 +1087,8 @@ results <- rbind(results,
 # table with only xgb results:
 xgb_results <- results[6:7,] %>% kable(caption = 'XGBoost Results')
 
+# table with all results
 all_results <- results %>% kable(caption = 'SVM and XGBoost Results')
-
 ```
 
 
@@ -1072,32 +1096,48 @@ To measure the performance of the XGBoost model, we can compute the average erro
 
     mean(as.numeric(predictions > 0.5) != test_set$isFraud )
 
-The algorithm does not use the test_set data during the construction of the model. When making classifications we can do a regression to the *isFraud* label and use a threshold (0.5). We finally calculate the Confusion Matrix to evaluate the performance of the 
+The algorithm does not use the test_set data during the construction of the model. When making classifications we can do a regression to the *isFraud* label and use a threshold (0.5). We finally calculate the Confusion Matrix to evaluate the performance of the model.
+
+```{r confusion matrix xgb validation set, include = FALSE}
+# Show confusion matrix XGB on validation set
+CM_xgb_val
+```
+
 
 ### XGBoost results
 
-The final performance results for the XGBoost model can be seen on the table *XGBoost Results*. `r xgb_results`
+The final performance results for the XGBoost model can be seen on the table *XGBoost Results*. 
+```{r Table XGBoost Results, echo = FALSE}
+print('Table XGBoost Results')
+xgb_results
+```
 
 
 # Overall Results
 
-No that we have downloaded, decompressed, loaded to the memory, explored, created visualizations, and applied two machine learning models, it is time to see all the results in one place. The table *SVM and XGBoost Result* brings it all together. `r all_results`
+No that we have downloaded, decompressed, loaded to the memory, explored, created visualizations, and applied two machine learning models, it is time to see all the results in one place. The table *SVM and XGBoost Results* brings it all together. 
+
+
+```{r Table with all results}
+# display table with all results
+all_results
+```
 
 Even though both models performed extremely well, the XGBoost ended up at the podium with flying colors. It is worth remembering that the SVM model was trained on a much smaller dataset since we down-sampled the majority class observations to match the number of the minority class and scored with accuracy on the validation data above 90%.  The XGBoost algorithm actually was able to be trained using all the available training data without need to down-sample and performed extremely well.
 
 
 # Conclusion
 
-The motivation behind choosing the PaySim dataset as starting point to this project was *find a real world problem and try to solve it*.  Up to this date Financial Crimes such as Fraud impacts Merchants and Consumers alike, since the first will eventually raise the cost of their products/services to cover financial losses. I am quite pleased with the results achieved here.  As final remarks, it is useful to know that training models on datasets with millions of observations can take a long time and it helps to reduce the size of the data to figure initial parameters and testing how models work can be a time saver.  Specially when dealing with large datasets and working on a single computer with i5 processor and 8GB RAM.  This project has been a great joy and motivation to keep learning R programming and exploring new package and resources.  I look forward to exploring other machine learning challenges with other datasets for deepen my skill set. 
+The motivation behind choosing the PaySim dataset as starting point to this project was **to find a real world problem and try to solve it**.  Up to this date Financial Crimes such as Fraud impacts Merchants and Consumers alike, since the first will eventually raise the cost of their products/services to cover financial losses. I am quite pleased with the results achieved here.  As final remarks, it is useful to know that training models on datasets with millions of observations can take a long time to process and it helps a lot to reduce the size of the data to figure initial parameters and testing of how the different models work can be a time saver.  Specially when dealing with large datasets and working on a single computer with i5 processor and 8GB RAM!  This project has been a great joy and serious motivation to keep learning R programming and exploring new packages and resources.  I look forward to exploring new machine learning challenges with other datasets for further develop my skill set. 
 
 
-# Acknowledgment
+## Acknowledgment
 
 I would like to thank Prof. Rafael A Irizarry for the great class content throughout all the modules: R Basics, Visualization,  Probability, Inference and Modeling, Productivity Tools, Data Wrangling, Linear Regression, Machine Learning and, the last one, Data Science: Capstone.  I also would like to thank my student peers during this amazing Data Science Professional Certificate journey.
 
 
 
-# Reference
+# References
 
 *   E. A. Lopez-Rojas, A. Elmir, and S. Axelsson. 
     
