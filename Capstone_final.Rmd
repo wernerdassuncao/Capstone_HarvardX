@@ -1,0 +1,1138 @@
+---
+title: "Capstone.Rmd"
+author: "Werner Dassuncao"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+    dev: "png"
+---
+
+```{r config_chunk, echo = FALSE, warning=FALSE, message=FALSE}
+# Adjust the size of the output to 80 % when creating the pdf.
+knitr::opts_chunk$set(out.width = '80%') 
+```
+
+# Introduction
+
+Losses due to fraudulent payments have reached globally \$ 28.65 billion in 2019, according to the most recent *Nilson Report* data. The United States alone accounts for over a third of the worldwide loss. These numbers are quite high and estimates for the US in 2020 are somewhere around \$ 11 billion due to credit card fraud says *Julie Conroy*, research director for Aite Group's fraud and anti-money laundering practice. These fraud cases affect consumers, merchants and card issuers alike. The total of cost for credit card fraud extends far beyond the cost of the illegally purchased goods. So, being able to detect fraud before it happens is extremely important.
+
+Access to actual financial data for research outside corporations is blocked due to privacy. For this project we will work with a data set from *The Mobile Money Payment Simulation* which was a case study based on a real company that has developed a mobile money implementation that provides mobile phone users with the ability to transfer money between themselves using the phone as a sort of electronic wallet.  Edgar Alonso Lopez-Roza explains:  *"The development of PaySim covers two phases. During the first phase, we modeled and implemented a MABS (Multi Agent Based Simulation) that used the schema of the real mobile money service and generated synthetic data following scenarios that were based on predictions of what could be possible when the real system starts operating. During the second phase we got access to transactional financial logs of the system and developed a new version of the simulator which uses aggregated transactional data to generate financial information more alike the original source"*. 
+
+This project aims to generate a machine learning model to predict if a transaction is fraudulent. Before we can talk about machine learning we need to explore, summarize and graph the data with the objective of learning about possible patterns and/or correlation between the variables. Secondly, we will look into the available predicting candidates (features).  For this project our target variable will point if a observation is fraud or not.
+
+Next will dive into two models for the machine learning section. The first will be Support Vector Machines (SVM) where we will deploy linear and polynomial kernels, and, the later, eXtreme Gradient Boosting (xgboost). These models will be trained using our train set, tested with the test set, and finally their performance will be "double-checked" on our final hold-out validation set.
+
+
+# Prepare the R environment
+
+The packages bellow will be installed automatically, if necessary. 
+
+```{r, warning=FALSE, message=FALSE, warning = FALSE}
+if(!require(tidyverse)) install.packages('tidyverse', repos = 'http://cran.us.r-project.org')
+if(!require(kableExtra)) install.packages('kableExtra', repos = 'http://cran.us.r-project.org')
+if(!require(gridExtra)) install.packages('gridExtra', repos = 'http://cran.us.r-project.org')
+if(!require(scales)) install.packages('scales', repos = 'http://cran.us.r-project.org')
+
+if(!require(caret)) install.packages('caret', repos = 'http://cran.us.r-project.org')
+if(!require(xgboost)) install.packages('xgboost', repos = 'http://cran.us.r-project.org')
+if(!require(Matrix)) install.packages('Matrix', repos = 'http://cran.us.r-project.org')
+if(!require(e1071)) install.packages('e1071', repos = 'http://cran.us.r-project.org')
+if(!require(DiagrammeR)) install.packages('DiagrammeR', repos = 'http://cran.us.r-project.org')
+if(!require(clue)) install.packages('clue', repos = 'http://cran.us.r-project.org')
+if(!require(devtools)) install.packages('devtools', repos = 'http://cran.us.r-project.org')
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install("ComplexHeatmap")
+library(devtools)
+library(tidyverse)
+library(kableExtra)
+library(gridExtra)
+library(scales)
+library(caret)
+library(xgboost)
+library(Matrix)
+library(e1071)
+library(clue)
+library(DiagrammeR)
+library(ComplexHeatmap)
+```
+
+
+# Exploratory Data Analysis
+
+
+## Data availability 
+
+The PaySim dataset is publicly hosted by Kaggle through the URL: *https://www.kaggle.com/ntnu-testimon/paysim1/download*. I wrote a R script to automatically download the data, decompress the zip file and load it up to the R environment, which worked while the link did not expire. This code is available bellow in the code chunk *download the source data*. Kaggle does not provide a direct download link for this dataset, therefore the automated process to download, extract and load its data is not possible as per April 16th, 2021.  This is due to the fact that the download link is dynamically created to the user connection (session) and expires shortly after clicking the download button. 
+
+```{r download the source data, warning = FALSE, message=FALSE}
+# # KAGGLE's DOWNLOAD LINK EXPIRES SHORTLY AFTER CLICKING THE DOWNLOAD BUTTON.
+# # This is an example code for automating the download, decompressing 
+# # and loading of data when a permanent download link is available
+
+# # Create a temporary file
+# dl <- tempfile()
+
+# # Paste the direct download link for your connection on Kaggle
+# file_direct_link <- 'https://storage.googleapis.com/kaggle-data-sets/1069/1940/bundle/archive.zip?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=gcp-kaggle-com%40kaggle-161607.iam.gserviceaccount.com%2F20210325%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20210325T223835Z&X-Goog-Expires=259199&X-Goog-SignedHeaders=host&X-Goog-Signature=0b6e33ce1e2defe58609a20ff72eb3d7fd227abd4dc9de6a70d6eb133aee721a45f1d6af416c726f9cc4477371ac64d669b28357c88b13fc330c64c1db58898e26d7616e90a4e7a170426c239756256f9fa1c61a91ef931d84d1a4ff1fb9a5b3e65853c8475cfaa5b5ddbe361b873f0aab2b1421f677f27a0e13cfeecf7731a2c40490446341bfcf326537b0e739a26e28fa3b03bd44e5ff027610b45630dfe1b85a2330cbc56e88707be1d22f106e267289ee99893b15e2e8ae6b8ee9a6776c98f1f26ee1da253f2b0338ada70867386b503994d2ab763598388ecc911b64e4e8cd8fa835d4f46a2f7855ea2247e70fb8167a0d1404c7b06db1a1895322e207'
+
+# # Download the file to the temporary file
+# download.file( file_direct_link, dl )
+
+# # Decompress the downloaded zip file
+# data <- unzip( zipfile = dl, 'PS_20174392719_1491204439457_log.csv' )
+
+# # Read the csv file
+# data <- read.csv(data)
+ 
+# # remove temp file
+# unlink(dl)
+
+# Now the "data" object contains the contents from the file downloaded from Kaggle!
+```
+
+## Loading the PaySim data
+
+Alternatively, for those of you who would like to replicate the findings and results displayed here:  you can load the PaySim data after its download from Kaggle and unzipping of the CSV file.  Make sure to place the CSV file in the same folder you have downloaded the Rmd and R files for this project. We load the data from the file downloaded to the local machine in the code chunk named *load the data*.
+
+```{r load the data}
+# Load the data directly from local csv file
+data <- read.csv('PS_20174392719_1491204439457_log.csv')
+```
+
+In this section we will browse the data from PaySim. Our objective is to determine what features (variables) have are relevant to predicting our desired output: is the transaction a case of 'fraud' or 'not'.  The data has `r format(nrow(data), big.mark = ',')` observations of `r ncol(data)` variables. Usint the *str()* function we can display the data structure.
+
+## Features, data types and observation
+
+```{r show data structure, echo= FALSE}
+str(data)
+```
+
+To check if there are Not Available (NA) values on the data we can use *anyNA()*, as of R 3.1.0, which implements  *any(is.na(x))* in a possibly faster way (especially for atomic vectors) since it stops after the first NA, and not wasting time checking the remainder of the data.
+
+```{r NA_check}
+anyNA(data)
+```
+
+There are no missing values in the dataset.
+
+## Sample row of the data
+
+Let's continue by looking into a sample row using the *slice_sample()* on the data and explain the variables:
+
+```{r sample_row, echo=FALSE, warning=FALSE, message=FALSE}
+slice_sample(data) # %>% kable()
+```
+
+## Description of features
+
+--------------------------------------------------------------------------
+
+* step - maps a unit of time in the real world. In this case 1 step is 1 hour of time. Total steps 744 (30 days simulation).
+
+* type - CASH-IN, CASH-OUT, DEBIT, PAYMENT and TRANSFER.
+
+* amount - amount of the transaction in local currency.
+
+* nameOrig - customer who started the transaction.
+
+* oldbalanceOrg - initial balance before the transaction.
+
+* newbalanceOrig - new balance after the transaction.
+
+* nameDest - customer who is the recipient of the transaction.
+
+* oldbalanceDest - initial balance recipient before the transaction. Note that there is not information for customers that start with M (Merchants).
+
+* newbalanceDest - new balance recipient after the transaction. Note that there is not information for customers that start with M (Merchants).
+
+* isFraud - This is the transactions made by the fraudulent agents inside the simulation. In this specific dataset the fraudulent behavior of the agents aims to profit by taking control or customers accounts and try to empty the funds by transferring to another account and then cashing out of the system.
+
+* isFlaggedFraud - The business model aims to control massive transfers from one account to another and flags illegal attempts. An illegal attempt in this dataset is an attempt to transfer more than 200.000 in a single transaction.
+
+--------------------------------------------------------------------------
+
+
+To obtain a summary statistics with mean, median, 25th and 75 quartiles, min and max values we can use the *summary()* function.
+
+## Account holders
+
+There are two kinds of account: *customer* and *merchant*. These can be identified by the first character in the *nameOrig* (initiator account) or *nameDest* (receiver account). There are no merchant accounts registered in the nameOrig column, while the nameDest column have observations both customer and merchant accounts.
+
+## Data summary
+
+```{r data summary, echo=FALSE, warning=FALSE, message=FALSE}
+summary(data) 
+```
+
+The *type* column is categorical and we will use a barplot to visualize it. On the figure 'Frequency table of transaction types' we can see the description of the proportion of each category. 
+
+--------------------------------------------------------------------------
+CASH-IN is the process of increasing the balance of account by paying in cash to a merchant.
+
+CASH-OUT is the opposite process of CASH-IN, it means to withdraw cash from a merchant which decreases the balance of the account.
+
+DEBIT is similar process than CASH-OUT and involves sending the money from the mobile money service to a bank account.
+
+PAYMENT is the process of paying for goods or services to merchants which decreases the balance of the account and increases the balance of the receiver.
+
+TRANSFER is the process of sending money to another user of the service through the mobile money plat- form.
+--------------------------------------------------------------------------
+
+
+## Distribution of transactions by type.
+
+```{r create color scale, echo=FALSE, warning=FALSE, message=FALSE}
+# We will create a custom color scale so that each transaction type always receives the same color for ease of comparison of plots by quantity and amount of transactions.
+
+# Change the datatype for the type column
+data$type <- as.factor(data$type)
+
+library(RColorBrewer)
+myColors <- brewer.pal(5,'Set1')
+names(myColors) <- levels(data$type)
+colScale <- scale_colour_manual(name = 'type', values = myColors)
+```
+
+
+```{r plot 1-3, echo=FALSE, warning=FALSE, message=FALSE}
+# Plot of type by frequency
+p1 <- data %>% 
+  group_by(type) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n / sum(n),
+         type = reorder(type, perc)) %>%
+  ggplot(aes(x = type, y = perc, fill = myColors)) +
+  geom_bar(stat = 'identity', show.legend = FALSE)+
+  geom_text(aes(label = paste0(round(perc*100, 2), ' %'),
+              y = perc), vjust = -.25) +
+  labs(title = 'Frequency of transactions by type', x = '', y = '') +
+  scale_y_continuous(labels = scales::percent, limits = c(0, .37)) 
+  #+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+
+# Plot of type by average amount
+p2 <- data %>% 
+  group_by(type) %>%
+  summarize(average = mean(amount)) %>%
+  mutate(average = average,
+         type = reorder(type, average)) %>%
+  ggplot(aes(x = type, y = average,  fill = myColors)) +
+  geom_bar(stat = 'identity', show.legend = FALSE)+
+  geom_text(aes(label = paste0('$ ',format(round(average), big.mark = ',', scientific = FALSE)),
+              y = average), vjust = -.25) +
+  labs(title = 'Transactions per average amount', x = '', y = '') +
+  scale_y_continuous(labels = scales::dollar, limits = c(0, 1e6))
+  #+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) 
+
+# custom global setting 
+options(stringsAsFactors = FALSE)
+
+# Boxplot of types and distribution of amounts
+p3 <- data %>% mutate( type = factor(type, levels = c('DEBIT','PAYMENT','CASH_IN','CASH_OUT','TRANSFER'))) %>%
+  ggplot(aes(x = type, y = amount, color = type)) +
+  geom_boxplot(alpha = 0.01, show.legend = FALSE) +
+  labs(title = 'Boxplot of transactions by type', x = '', y = 'log10 (amount)') +
+  scale_y_continuous(trans = 'log10')  +
+  #theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+  scale_color_manual(breaks = c('DEBIT','PAYMENT','CASH_IN','CASH_OUT','TRANSFER'),
+                     values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00"))
+```
+
+According to the plot *Frequency of transaction by type*, the transaction CASH-OUT is the most used, closely followed by PAYMENT. DEBIT is the least used transaction.  The *Transactions per average amount* plot displays the transactions sorted by average amount, TRANSFER has the highest average, while CASH-IN and CASH-OUT have similar averages.
+
+```{r types plots 1 & 2, echo = FALSE, warning=FALSE, message=FALSE, fig.cap='Distribution by frequency and averate amount of transactions', fig.width=12}
+grid.arrange(p1, p2, nrow = 1)
+```
+The plot *Boxplot of transactions by type* shows the data distribution of each transaction type side-by-side and their quick summaries, the box in the middle indicates 'hinges' (close to first and third quartiles) and median in the center of the box. Outliers are displayed as points above and bellow the center box.
+
+```{r types plot 3, echo = FALSE, warning=FALSE, message=FALSE, fig.cap='Box plot of transactions by amount', fig.width=12}
+p3
+```
+
+
+## Fraudulent transactions
+
+We can observe the existence of five transaction categories, but only two it's types are cases of fraud:
+
+* TRANSFER: money is remitted to a customer, the fraudster.
+
+* CASH-OUT: money is remitted to a merchant who pays the customer (fraudster) in cash. 
+
+Plot 4: displays the percentage of fraudulent transactions. Plot 5, 6 and 7: demonstrates the comparison between TRANSFER and CASH-OUT by average amount, number of transactions and boxplot with medium, quantiles and distribution of amounts.
+
+
+```{r plots 4-7, echo=FALSE, warning=FALSE, message=FALSE}
+p4 <- data %>% 
+  mutate(isFraud = factor(isFraud, levels = c(0,1), labels = c('Legitimate', 'Fraud'))) %>%
+  group_by(isFraud) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n / sum(n),
+         isFraud = reorder(isFraud, perc)) %>%
+  ggplot(aes(x = isFraud, y = perc, fill = isFraud)) +
+  geom_bar(stat = 'identity', show.legend = FALSE)+
+  geom_text(aes(label = paste0(round(perc*100, 2), '%'),
+              y = perc), vjust = -.25) +
+  labs(title = 'Fraud percentage', x = '', y = '') +
+  scale_y_continuous(labels = scales::percent) 
+
+p5 <- data %>% filter(isFraud == 1) %>%
+  group_by(type) %>%
+  summarize(average = mean(amount)) %>%
+  mutate(average = average,
+         type = reorder(type, average)) %>%
+  ggplot(aes(x = type, y = average, fill = factor(type))) +
+  geom_bar(stat = 'identity', show.legend = FALSE)+
+  geom_text(aes(label = paste0('$ ',format(round(average), big.mark = ',', scientific = FALSE)),
+              y = average), vjust = -.25) +
+  labs(title = 'Fraud by average amount', x = '', y = '') +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) 
+
+p6 <- data %>% filter(isFraud == 1) %>%
+  group_by(type) %>%
+  summarize(n = n()) %>%
+  mutate(perc = n / sum(n),
+         type = reorder(type, perc)) %>%
+  ggplot(aes(x = type, y = perc, fill = type)) +
+  geom_bar(stat = 'identity', show.legend = FALSE) +
+  geom_text(aes(label = paste0(round(perc*100, 2), '%'),
+              y = perc), vjust = -.25) +
+  labs(title = 'Fraud per type', x = '', y = '') +
+  scale_y_continuous(labels = scales::percent) 
+
+p7 <- data %>% filter(isFraud == 1) %>%
+  ggplot(aes(x = factor(type), y = amount, colour = type)) +
+  geom_boxplot(alpha = 0.1, show.legend = FALSE) +
+  labs(title = 'Fraud boxplot', x = '', y = '') +
+  scale_y_continuous(labels = unit_format(unit = 'M', scale = 1e-6))
+```
+
+```{r fraud_plots, echo=FALSE,warning=FALSE, message=FALSE, fig.width= 12}
+grid.arrange(p4, p5, nrow = 1)
+```
+
+```{r fraud_plots2, echo=FALSE,warning=FALSE, message=FALSE, fig.width= 12}
+grid.arrange(p6, p7, nrow = 1)
+```
+
+```{r house_cleaning, echo = FALSE, message = FALSE, warning = FALSE}
+# remove no longer needed objects to free up memory
+rm(p1,p2,p3,p4,p5,p6,p7)
+```
+
+We can observe that the percentage of fraudulent transactions is `r round(sum(data$isFraud)*100/nrow(data),2)` %. It is worth noting that the number of fraud TRANSFERs is almost the same as CASH_OUT transactions. Let's look into what kind of transactions are actual fraud cases:
+
+```{r fraud_stats, echo=FALSE, warning=FALSE, message=FALSE}
+fraud <- data %>% 
+  filter(isFraud==1) %>% group_by(type) %>%
+  summarize(type = type,
+            number = format(n(), big.mark = ',', scientific = FALSE),
+            average  = format(mean(amount), big.mark = ',', scientific = FALSE),
+            min = format(min(amount), big.mark = ',', scientific = FALSE),
+            max = format(max(amount), big.mark = ',', scientific = FALSE),
+            sum = format(sum(amount), big.mark = ',', scientific = FALSE) ) %>% 
+  distinct(type, number, average, min, max, sum)
+fraud %>% kable(caption = 'Summary table of fraudulent transactions')
+```
+
+
+```{r custom summary fraud_totals, echo = FALSE, warning = FALSE}
+# save the number of observations 
+total_observations <- nrow(data)
+
+# create a custom summary for fraud transactions
+fraud_totals <- data %>% 
+  filter(isFraud==1) %>% 
+  summarize(n = format(n(), big.mark = ',', scientific = FALSE),
+            avg  = format(mean(amount), big.mark = ',', scientific = FALSE),
+            min = format(min(amount), big.mark = ',', scientific = FALSE),
+            max = format(max(amount), big.mark = ',', scientific = FALSE),
+            sum = format(sum(amount), big.mark = ',', scientific = FALSE) ) %>% 
+  distinct(n, avg, min, max, sum)
+```
+
+The total of fraudulent transactions, CASH_OUT and TRANSFER together, is `r fraud_totals$n` adding up to a sum of \$ `r fraud_totals$sum` with an average value per transaction of \$ `r fraud_totals$avg`. Min and max values are, respectively, \$ `r fraud_totals$min` and \$ `r fraud_totals$max`.
+
+The number of different origin accounts is `r format(length(unique(data$nameOrig)), big.mark = ',', scientific = FALSE)` and the quantity of distinct receiver accounts is `r format(length(unique(data$nameDest)), big.mark = ',', scientific = FALSE)`. There are no transactions between same account identifiers or same account holder. This does not match the *modus operandi* description on Kaggle: the first step is to make a TRANSFER to a fraudulent account, then execute a CASH_OUT. These two steps would have been realized by the same fraudster account (origin and destination). The data does not show the expected behavior for this fraudulent modus-operandi since there are no transaction with same agent and marked with isFraud set to 1.
+
+When verifying if there are fraudulent transactions by the same account number for origin and destination we encounter no cases that satisfy the *modus operandi* as expected by the descriptions on the PaySim paper: https://ntnuopen.ntnu.no/ntnu-xmlui/bitstream/handle/11250/2584265/2017+IJSPM+EDL+Final+version.pdf?isAllowed=y&sequence=2
+
+
+## About the isFlaggedFraud feature
+
+The column isFlaggedFraud is only set a few times in all 6 Million observations. Let's check if this column is consistently set with the isFraud column. Here we filter the data for isFraud and isFlaggedFraud equals to 1. How many observations have the isFraud and isFlaggedFraud set simmultaneously?
+
+```{r, echo = FALSE}
+# How many observations have the isFraud and isFlaggedFraud set simmultaneously?
+data %>% filter ( ( isFraud == 1 ) & ( isFlaggedFraud == 1 ) ) %>% count() %>% pull(n)
+```
+
+The amount of observations with isFlaggedFraud is extremely low `r data %>% filter ( ( isFraud == 1 ) & ( isFlaggedFraud == 1 ) ) %>% count() %>% pull(n)` given the total number of transactions where isFraud is set: `r format(fraud_totals$n, big.mark = ',', scientific = FALSE)`. Eventhough we have confirmed that all observations where isFlaggedFraud is set also has isFraud variable set, the only transaction type where the isFlaggedFraud is set is: `r data %>% filter( isFlaggedFraud == 1) %>% distinct(type)`. So far this feature does not seem to add enough value to our model since it is extremely rare compared to the 6 Million rows of data and, nonetheless, it only occurs for TRANSFER transactions. 
+
+The table *Summary of transactions when isFlaggedFraud is set* displays a the summary of this data. 
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+flagged_totals <- data %>% 
+  filter( isFlaggedFraud == 1 ) %>% 
+  summarize( quantity = format(n(), big.mark = ',', scientific = FALSE),
+            avg  = format(mean(amount), big.mark = ',', scientific = FALSE),
+            min = format(min(amount), big.mark = ',', scientific = FALSE),
+            max = format(max(amount), big.mark = ',', scientific = FALSE) ) %>% distinct(quantity, avg, min, max)
+
+flagged_totals %>% kable(caption = 'Summary of transactions when isFlaggedFraud is set')
+```
+
+We are looking to determine if there it is possible to relate the isFlaggedFraud with other variables, such as defining possible thresholds for this feature being set and based on other columns. There are multiple transactions from the same customer names where isFlaggedFraud is not set, but these duplicates do not exist otherwise.  So, the number of transactions by same user (account) can't determine if the isFlaggedFraud is set or not.
+
+```{r isFlaggedFraud checks , echo = FALSE, warning = FALSE, message = FALSE}
+flagged <- data %>% filter( isFlaggedFraud == 1 )
+not_flagged <- data %>% filter( isFlaggedFraud == 0)
+```
+
+Exploring further we can ask the data the following questions: Are there multiple transactions by the same origin flagged as fraud?
+Answer: `r subset(flagged, nameOrig %in% paste(not_flagged$nameOrig, not_flagged$nameDest))`. Are there transactions initiated by a destination account flagged as fraud? Answer: `r subset(flagged, nameDest %in% not_flagged$nameOrig)`. Are there multiple transactions where the destination account was flagged? Answer: `r subset(flagged, nameDest %in% not_flagged$nameDest)`.
+
+```{r questions flagged, include = FALSE, echo = FALSE, warning = FALSE, message = FALSE}
+print('Are there multiple transactions by the same origin flagged as fraud?')
+subset(flagged, nameOrig %in% paste(not_flagged$nameOrig, not_flagged$nameDest))
+
+print('Are there transactions initiated by a destination account flagged as fraud?')
+subset(flagged, nameDest %in% not_flagged$nameOrig)
+
+print('Are there multiple transactions where the destination account was flagged?')
+subset(flagged, nameDest %in% not_flagged$nameDest)
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+steps <- flagged %>% pull(step)
+```
+
+The feature *step* occurs when isFlaggedFraud is set with the following values: `r cat(steps, sep=',')`.  These values expand over most of the range for this feature and therefore we can use it as a threshold for isFlaggedFraud being set.
+
+Do *oldbalanceOrig*, *newbalanceOrig*, *oldbalanceDest* and *newbalanceDest* explain how isFlaggedFraud is set? The minimum value for oldbalanceDest is `r min(flagged$oldbalanceDest)` and maximum is `r max(flagged$oldbalanceDest)`, while for oldbalanceOrig the min and max are `r cat(format(min(flagged$oldbalanceOrig), big.mark=','),',', format(max(flagged$oldbalanceOrig), big.mark=','))`, respectively. Therefore neither of these can be used to threshold when isFlaggedFraud is being set since their corresponding values overlap with other transactions which are not flagged. Again these are also independent from isFlaggedFraud. It is worth noting that for all flagged transactions (all of the TRANSFERs) the old and new balances are the same. 
+
+The total number of transactions where isFlaggedFraud is set is equal the number of transactions where old and new balances for origin and destination accounts, as shown on table *All cases where the isFlaggedFraud is set*.
+
+```{r flagged transactions, echo = FALSE, warning = FALSE}
+flagged %>% filter(oldbalanceDest == newbalanceDest,
+                   oldbalanceOrg == newbalanceOrig)  %>% kable(caption = 'All cases where the isFlaggedFraud is set')
+```
+
+```{r removing unused objects, echo = FALSE, warning = FALSE}
+# removing no-longer needed objects from memory
+rm(flagged, not_flagged)
+```
+
+After these observations we can conclude that the *isFlaggedFraud* feature does not seem be set according to a set logic and only 16 times total. We can consider this variable not relevant and remove it from our prediction model.  
+
+## Variable name consistency
+
+From the structure of the data, we rename one of the features with a typo so that it matches the name structure of the other features and increase readability: "oldbalanceOrg" to "oldbalanceOrig".
+
+```{r rename column}
+# For readability and consistency, we will correct the 
+# column name "oldbalanceOrg" to "oldbalanceOrig"
+data <- data %>% rename(oldbalanceOrig = oldbalanceOrg)
+```
+
+In this section we will organize the data according to the findings from the previous section.  We will keep the data related only to the fraudulent transactions: TRANSFER and CASH_OUT. We create a object with features X for analysis and our target value Y.  Since we only have two types of transactions we will use 0's for TRANSFERs and 1's for CASH_OUTs.
+
+```{r create X and Y objects}
+# create a X data object with 
+X <- data %>% filter( (type == 'TRANSFER') | (type == 'CASH_OUT') )
+
+# grab the target variable 'isFraud' from the filtered dataframe X 
+Y <- X$isFraud
+# remove 'isFraud' from X
+X <- X[,!(names(X) %in% 'isFraud')]
+
+# remove the columns that are not relevant according to data exploration 
+drop <- c('nameOrig', 'nameDest', 'isFlaggedFraud')
+X <- X[,!(names(X) %in% drop)]
+
+# Encode binary values for TRANSFER and CASH_OUT
+X <- X %>% mutate(type = str_replace_all(type, c('TRANSFER' = '0', 'CASH_OUT' = '1')))
+
+# Convert the type to integer
+X$type <- as.integer(X$type)
+
+# Remove from memory
+rm(data)
+
+# Create two new features(columns) to help train the models
+X <- X %>% mutate(balance_error_orig = newbalanceOrig + amount - oldbalanceOrig,
+                  balance_error_dest = oldbalanceDest + amount - newbalanceDest)
+```
+
+Looking into to the balance of the destination accounts:
+
+```{r zero balance percentages destination accounts, echo = FALSE, warning = FALSE }
+# get index of all FRAUD transactions
+fraud_index <- Y == 1
+
+# create a fraud dataframe
+Xfraud <- X[ fraud_index, ]
+# create a non-fraud dataframe (note the '!' sign to negate the logical vector)
+Xnonfraud <- X[ !fraud_index, ]
+
+# percentage of legitimate zero balance transactions
+zero_bal_perc_nonfraud <- Xnonfraud %>% 
+  filter( (oldbalanceDest == 0) & (newbalanceDest == 0) & (amount != 0) )  %>%
+  summarize( percentage = 100 * n() / nrow(Xnonfraud) ) %>% round(., digits = 2)
+
+# percentage of fraudulent zero balance transactions 
+zero_bal_perc_fraud <- Xfraud %>% 
+  filter( (oldbalanceDest == 0) & (newbalanceDest == 0) & (amount != 0) )  %>%
+  summarize( percentage = 100 * n() / nrow(Xfraud) ) %>% round(., digits = 2) %>%
+  .$percentage
+```
+
+We have seen that there are various transactions with zero balances on the destination account. The percentages of these transactions are quite different. For non-fraudulent transactions the percentage is `r zero_bal_perc_nonfraud` % while for fraudulent transactions we have `r zero_bal_perc_fraud` %.  The later percentage is substantially higher indicating that it could be a strong indicator of fraud. Instead, improve the fraud detection we highlight this by replacing the value 0 with -1 in the columns "oldbalanceDest" and "newbalanceDest". The old account balance will not be used with a statistic since it could mask this indicator of fraud and make fraudulent transactions appear genuine. 
+
+```{r highlighting fraud possibilities, echo = FALSE, messate = FALSE, warning = FALSE}
+# replacing 0 with -1 to highlight the possibility of fraud for the ML.
+# filter the dataframe, then select the columns to update, lastly define the desired value 
+X[ which( X$oldbalanceDest == 0 & X$newbalanceDest == 0 & X$amount != 0), 
+        names(X) %in% c("oldbalanceDest", "newbalanceDest")] <- -1
+```
+
+## Prior and post transaction balances in the origin accounts
+
+```{r zero balance percentage origin accounts, echo = FALSE, messate = FALSE, warning = FALSE}
+zero_bal_perc_nonfraud_orig <- Xnonfraud %>% 
+  filter( (oldbalanceOrig == 0) & (newbalanceOrig == 0) & (amount != 0) )  %>%
+  summarize( percentage = 100 * n() / nrow(Xnonfraud) ) %>% round(., digits = 2)
+
+# percentage of zero balance transactions in case of FRAUD
+zero_bal_perc_fraud_orig <- Xfraud %>% 
+  filter( (oldbalanceOrig == 0) & (newbalanceOrig == 0) & (amount != 0) )  %>%
+  summarize( percentage = 100 * n() / nrow(Xfraud) ) %>% round(., digits = 2)
+```
+
+In the case of the origin accounts we observe the presence of several cases of zero balances before and after the transactions. For legitimate transactions we have `r zero_bal_perc_nonfraud_orig` % and for fraudulent this number is much smaller `r zero_bal_perc_fraud_orig` %. The proportion of fraudulent transactions considering the origin account balances is much smaller. 
+
+## Creating new variables
+
+On this dataset we have information about the balance for the origin and destination accounts. We will leverage this data by creating two new features: *balance_error_orig* and *balance_error_dest*, since the balance values might help us to identify fraudulent transactions. The calculation of value of these new features is: 'new balance' + 'amount' - 'old balance' = 'balance_error'. 
+
+
+## Visualizations
+
+Since our goal is to identify the fraud cases and we have learned from the data that only TRANSFER and CASH_OUT transactions are possible cases, we will filter the data to include only these observations. Next we will create vizualizations and try to 'see' a difference between legitimate and fraudulent transactions. Starting with the transaction amount, we have the plot *Dispersion of transactions over amount*. We can observe that the dispersion over amount is not conclusive given that the same values occur both in legitimate and fraudulent transactions. Worth noting the for fraud cases the amount seems restricted evenly between transfers and cash_outs in lower range. On the other hand for legitimate transactions, cash_outs operations have very small amounts compared to the legitimate transfers.
+
+```{r amount plot, echo = FALSE, warning = FALSE, fig.cap= 'Dispersion of transactions over amount'}
+#plot a custom graph with data from X and Y
+ggplot(data = X, mapping = aes(factor(Y), amount, color = factor(type))) +
+  geom_jitter(alpha = 0.4, size = 0.85) +
+  scale_x_discrete(labels = c('Legitimate', 'Fraud')) + # encode the x label
+  #scale_y_log10() + # transform with log10 the y scale
+  scale_color_discrete(breaks = c(0,1), labels = c('TRANSFER', 'CASH_OUT')) + # encode the legend
+  labs(color = 'Transaction:', y = 'Amount') + xlab(NULL) + # display 'Type', hide name of x axis
+  guides(color = guide_legend(override.aes = list(size = 3))) # Display larger colors in the legend
+  #+ ggtitle(label = 'Amount plot') # Show title
+```
+
+Moving on to the next variable: step. As observed in the data exploration, the value of the step feature represents the number of hours since the start of the 30 day simulation. It is quite remarkable how the transactions types are homogeneously dispersed for fraudulent ones. The legitimate observations seem to display a pattern of bands(lines) over time.
+
+```{r step plot, echo = FALSE, warning = FALSE, fig.cap='Dispersion of transactions over step (time)'}
+#plot a custom graph with data from X and Y
+ggplot(data = X, mapping = aes(factor(Y), step, color = factor(type))) +
+  geom_jitter(alpha = 0.4, size = 0.085) +
+  scale_x_discrete(labels = c('Legitimate', 'Fraud')) + # encode the x label
+  scale_color_discrete(breaks = c(0,1), labels = c('TRANSFER', 'CASH_OUT')) + # encode the legend
+  labs(color = 'Transaction:', y = 'Step (number of hours)') + xlab(NULL) + # display 'Type', hide name of x axis
+  guides(color = guide_legend(override.aes = list(size = 3))) # Display larger colors in the legend
+  # + ggtitle(label = 'Dispersion of balance_error_dest') # Show title
+```
+
+Now we will plot using the two new computed features balance error for origin and destination accounts. Observing the first feature on plot *Balance error origin account* we can observe a dispersion similar to what we saw when plotting over the transaction amount.
+
+```{r balance_error_orig, fig.cap='Balance error origin account', echo = FALSE, warning = FALSE}
+#plot a custom graph with data from X and Y
+ggplot(data = X, mapping = aes(factor(Y), balance_error_orig, color = factor(type))) +
+  geom_jitter(alpha = 0.4, size = 0.085) +
+  scale_x_discrete(labels = c('Legitimate', 'Fraud')) + # encode the x label
+  scale_color_discrete(breaks = c(0,1), labels = c('TRANSFER', 'CASH_OUT')) + # encode the legend
+  labs(color = 'Transaction:', y = 'Balance error origin account') + xlab(NULL) + # display 'Type', hide name of x axis
+  guides(color = guide_legend(override.aes = list(size = 3))) # Display larger colors in the legend
+  # + ggtitle(label = 'Dispersion of balance_error_dest') # Show title
+```
+
+The plot *Balance error on destination account* displays a very interesting dispersion, we can clearly see that for legitimate transactions the values tend to be negative, and for fraudulent transactions the values are gravitating towards positive side of the scale. Note that for Fraud transactions the green dots (CASH_OUT) tend to stay in the 0 error margin, while legitimate transactions are much more disperse.
+
+```{r balance_error_dest, echo = FALSE, warning = FALSE, fig.cap='Balance error destination account'}
+#plot a custom graph with data from X and Y
+ggplot(data = X, mapping = aes(factor(Y), balance_error_dest, color = factor(type))) +
+  geom_jitter(alpha = 0.4, size = 0.85) +
+  scale_x_discrete(labels = c('Legitimate', 'Fraud')) + # encode the x label
+  scale_color_discrete(breaks = c(0,1), labels = c('TRANSFER', 'CASH_OUT')) + # encode the legend
+  labs(color = 'Transaction:', y = 'Balance error destination account') + xlab(NULL) + # display 'Type', hide name of x axis
+  guides(color = guide_legend(override.aes = list(size = 3))) # Display larger colors in the legend
+  # + ggtitle(label = 'Dispersion of balance_error_dest') # Show title
+```
+
+The difference between fraudulent and legitimate transactions can be also be observed by the correlation heatmap.  Heatmaps are great to analyse data because it translates the variation of the correlation values between the features. We will use a cluster heat map where the features are the rows and columns of a matrix. The higher values will receive a 'hot' color and lower values a 'cold' color. This hopefully will aid us in determining what features to focus on our machine learning model. 
+
+The package ComplexHeatmap provides great options to create customizeable heatmaps with many options. The figure *Heatmaps of correlations of transactions* display the level of correlation among the features. A correlation exposes the measure of dependence between two quantities, most broadly used is the Pearson correlation. A correlation coefficient of 1 is a perfect direct linear relationship, and -1 represents a perfect inverse correlation. The closer the value is to either -1 or 1 the stronger the correlation between the features. We can observe this on the forementioned heat map.
+
+```{r xfraud correlations}
+# compute the correlations ignoring the NA's: 'complete.obs'
+correlation_nonfraud = cor(Xnonfraud[,names(Xnonfraud) != 'step'], use = 'complete.obs')
+correlation_fraud = cor(Xfraud[,names(Xfraud) != 'step'], use = 'complete.obs')
+```
+
+```{r, fig.cap= 'Heatmaps of correlation of transactions', echo = FALSE, message = FALSE, warning = FALSE}
+# hide package loading messages 
+suppressPackageStartupMessages(library(ComplexHeatmap))
+# Create heatmap for fraud and non-fraud cases, using the ComplexHeatmap package
+f <- Heatmap(correlation_fraud, column_title = 'Fraud', 
+             row_order = names(correlation_nonfraud),     # columns and
+             column_order = names(correlation_nonfraud),  # rows in the same order
+             show_heatmap_legend = FALSE,    # Same legend for both, only display one
+             rect_gp = gpar(col = 'white', lwd = 3))
+nf <- Heatmap(correlation_nonfraud, column_title = 'Non-fraud',  
+              row_order = names(correlation_nonfraud),     # columns and
+              column_order = names(correlation_nonfraud),  # rows in the same order
+              name = 'Coeficient',    # set the legend name
+              rect_gp = gpar(col = 'white', lwd = 3))  # adjust display
+
+# arrange the heatmaps side by side
+draw(nf + f, heatmap_legend_side = 'left')
+
+# Remove objects from memory
+rm(Xfraud, Xnonfraud)
+```
+
+The comparison of the heatmaps allows us to observe a stronger correlation between *balance_error_dest* and particularly the features *amount*, *oldbalanceOrig*, *newbalanceDest* on the Fraud cases!
+
+
+# Methodology
+
+
+## Data preparation
+
+The use the same source data for both use machine learning techniques to make our predictions. Considering the fact that Support Vector Machines and eXtreme Gradient Boosting algorithms *look at* and *process* the data differently we will adjust the train set to fit each individual model's requirements so that we can achieve our goal.  We will create a X, dataframe, that contains all features to be used during the training, testing and validation of the algorithm and Y, numeric vector, with the legend for all of these observations.
+
+The distribution of classes in the dataset is extremely important. There is a extreme skew on the data, meaning that from our two possible classes (fraud and not-fraud) over 99% of the data belongs to the majority class (not-fraud). For the SVM we will use a downSample() approach to create proportionally distributed sets from both classes and enhance performance (by reducing the number of fraud transactions) by reducing the computational cost. On the other hand the XGBoost by nature is much more suited to handle imbalanced data sets. More details about the models in the following sections.
+
+## Validation data
+
+We will select 10% of the data to create our validation set. This set will be used to verify the performance of our final model on completely unknown data. For this we will use the function createDataPartition() from the *Caret* package. We define which feature will be the *target feature*, in our case, the *isFraud* variable. The following parameters are *time* which determines the number of partitions to create; *proportion* will be our desired ratio: 10%, *list* sets to FALSE determines that we want our outcome as a matrix with number of rows equal to *floor(p * length(y))* and 'times' columns. The output of createDataPartition is a logical vector for the validation set which we use to filter the whole dataset. The remaining set with 90% of the data can be filtered out by using its inverse index. 
+
+## Train and Test data
+
+Next, we will split the remaining 90 % of the PaySim data in *Train* and *Test* sets. These two sets will be used to train and test our model, the split will be respectively 80% / 20%. Also, using createDataPartition() with proportion set to 0.2.
+
+We will explore two different approaches to solving our problem: *Support Vector Machines* from *package e1071* and *eXtreme Gradient Boosting* from the *XGBoost package*. Once we are satisfied with the performance of the models we will compare them them on our final hold-out-set: validation set.
+
+Machine learning algorithms used for classification usually assume that there is a equal number of examples for each class. A great challenge with this dataset is the severe imbalance of its data. This means that the distribution of the observations is skewed towards the 'not fraud' (legitimate transaction) class. The number of fraudulent transactions is minuscule (`r as.numeric(fraud_totals$n)`) compared to immense number of legitimate transactions (`r as.numeric(total_observations) - as.numeric(fraud_totals$n)`). The ratio is about `r as.numeric(fraud_totals$n)*100 / as.numeric(total_observations)` %.  
+
+The 3 main steps:
+
+  1. We will train (or learn) our models using the train data and provide its corresponding legends: *Fraud* (y == 1) and *not-Fraud* (y == 0). The positive class will be y == 1.
+
+  2. Next we test our model, providing the test data (from X) and comparing our model's predictions with the corresponding legends (actual legends) from Y. Here we have a chance to go back to step 1 (model training) and adjust parameters to try to achieve better prediction results. Once, the results are satisfactory we will move on to step 3. Since our model is making predictions on a binary classification problem, our prediction accuracy will be used to compare the models. If the results are not satisfactory on step 2 we return to step one with different parameters. 
+
+  3. Finally we check the models performance on our final hold-out-set (validation set) to do a additional prediction test. Note that the validation data was not used during training of either model.
+
+
+# Machine Learning Models
+
+## Support Vector Machines
+
+Support Vector Machines from package 'e1071' is one of the most robust prediction methods and are based on statistical learning frameworks. Given a set of training examples labeled as one of two categories (fraud or not-fraud), it maps these examples as points in space so that the gap between these two categories is maximized.  The new examples (test set) are then mapped to that same space and their categories are predicted based on what side of the gap between the categories the points fall.
+
+In SVM, a data point is viewed as a *p*-dimensional vector (p is the number of features), the objective is to separate the data points using a (p -1)-dimensional hyperplane, in other words, be able to determine a *new* data point without having the label for the class (our *isFraud* variable).
+
+Our first order of business will be to use the downSample() function from the Caret package. This *down-sampling* randomly samples the majority class (isFraud == 0) to be the same size as the second class (isFraud == 1), in this case the minority class. This greatly reduces the total number of observations, but is less computationally expensive. The number of examples from the output of the downSample() function can be seen on table *Output of the downSample function*. We can see that there is an equivalent number of observations for each class.
+
+We will use to types of SVM kernels: Linear and Polynomial. The training will be done using the train_set and the testing the models accuracy using the test set. After separating the train and test set, we create our model by defining the target features and the predicting features in the formula = "Class ~ ." The *Class* is our desired output and "~." means use all features available ('amount', 'type', 'newbalanceOrig', 'oldbalanceOrig').
+
+```{r prepare svm data, echo = FALSE, warning = FALSE, message = FALSE}
+# Join X and Y to make a balanced split of the data based on 
+# classes for validation set, later for train and test sets. 
+d <- cbind(X,isFraud = Y)
+d <- d %>% mutate(step = as.numeric(step),
+                 type = as.numeric(type),
+                 isFraud = as.numeric(isFraud))
+
+# # display the structure of 'd'
+#str(d)
+
+# Setting a fixed seed to enable reproducibility of the results.
+set.seed(1, sample.kind = 'Rounding') # if using R 3.5 or earlier, use `set.seed(1)`
+
+# encoding the target feature 'isFraud' as a factor
+svm_d <- d %>% mutate(            
+            isFraud = factor( isFraud, levels = c(0,1) ) )
+
+# remove from memory
+rm(d)
+
+########################################################################
+# # if your computer crashes you can reduce the number of features here:
+# # reduce the number of features to test the svm algoritm
+# features_to_keep <- c('amount', 'type', 'newbalanceOrig', 'oldbalanceOrig', 'isFraud')
+# 
+# # drop the unwanted columns
+# svm_d <- svm_d[, names(svm_d) %in% features_to_keep]
+########################################################################
+
+
+# set seed to 1 replicate the results
+set.seed(1, sample.kind = 'Rounding')
+
+# Reduce the number of observations to be proportional 
+# to the isFraud == 1 minority class. (downSample function, Caret package)
+svm_d  <- downSample(x = svm_d[ , -ncol(svm_d) ],
+                    y = svm_d[ , ncol(svm_d) ],
+                    yname = 'isFraud', list = FALSE)
+
+# display the distribution of the classes in the new data
+dplyr::count(svm_d, isFraud, sort = TRUE) %>% kable(caption='Output of the downSample function')
+
+# # show the features used to learn the model
+#str( svm_d[ , -ncold( svm_d ) ] )
+
+# Create a index with 10 % of the raw PaySim data
+svm_validation_index <- createDataPartition(y = svm_d$isFraud, times = 1, p = 0.1, list = FALSE)
+
+# use the index to create the validation set and validation labels
+svm_validation_set <- svm_d[ svm_validation_index, ]
+# use the opposite of the index to create our dataset with 90% of the raw data
+svm_paysim <- svm_d[ -svm_validation_index, ]
+
+# In order to replicate the results here, you need to set the seed to 1
+set.seed(1, sample.kind = 'Rounding')
+
+#svm_paysim is the object we will use to learn our ML model, we start by creating the train and test sets
+# Create a index for the test set
+test_index <- createDataPartition(y = svm_paysim$isFraud, times = 1, p = 0.2, list = FALSE)
+
+# Create the sets using the index, 20% of the PaySim data for testing, train data is 80%
+train <- svm_paysim[ -test_index, ] # here we have the inverse of the index
+test <- svm_paysim[ test_index, ] 
+```
+
+```{r SVM linear, echo = FALSE, warning = FALSE, message = FALSE}
+# train model SVM - kernel: Linear'
+
+# In order to replicate the results here, you need to set the seed to 1
+set.seed(1, sample.kind = 'Rounding')
+
+# train model SVM
+model_svm <- svm( formula = isFraud ~ ., 
+                 type = 'C-classification',
+                 data= train,
+                 kernel = 'linear' )
+
+# make predictions on the test data
+pred <- predict( model_svm, newdata = test[, -ncol(svm_d) ] ) 
+
+# Confusion matrix
+CM_SVM <- confusionMatrix( pred, test[,ncol(svm_d)], positive = '1' )
+
+# Create table to store the results
+results <- tibble(model = 'SVM', kernel = 'linear', data = 'test_set',
+                  accuracy = CM_SVM$overall[1], sensitivity = CM_SVM$byClass[1],
+                  specificity = CM_SVM$byClass[1])
+```
+
+Our SVM model with linear kernel achieved this performance: `r CM_SVM`
+
+```{r SVM polynomial best tune, echo = FALSE, warning = FALSE, message = FALSE}
+# Tunning of model SVM - kernel: polynomial')
+# In order to replicate the results here, you need to set the seed to 1
+set.seed(1, sample.kind = 'Rounding')
+
+# # Long processing time here(findings bellow)
+# # tune svm polynomial - function tune.svm()
+# optimal_parameters <- tune.svm( x = train[,-ncol(svm_d)], y = train[,ncol(svm_d)],
+#                           type = 'C-classification',
+#                           kernel = 'polynomial', degree = 2, 
+#                           cost = 10^(1:3), # range from 10 - 1000
+#                           gamma = c(0.1, 1, 10), 
+#                           coef0 = c(0.1, 1, 10) )
+# optimal_parameters   
+
+### best parameters:
+###  degree gamma coef0 cost
+###       2     1     1 1000
+
+# In order to replicate the results here, you need to set the seed to 1
+set.seed(1, sample.kind = 'Rounding')
+# train model SVM
+model_svm_poly <- svm( formula = isFraud ~ ., 
+               data=train,
+                kernel = 'polynomial',
+                degree = 2, 
+                gamma = 1,
+                coef0 = 1,
+                cost = 1000,
+                scale = TRUE )
+
+# Make predictions on the test data
+pred_svm_poly <- predict(model_svm_poly, newdata = test[,-ncol(svm_d)])  # make predictions with test data
+# Confusion matrix
+CM_SVM_polynomial <- confusionMatrix(pred_svm_poly, test[,ncol(svm_d)], positive = '1') # show the confusion matrix
+# Add results to table
+results <- rbind(results, 
+                 tibble(model = 'SVM', kernel = 'polynomial', data = 'test_set', 
+                        accuracy = CM_SVM_polynomial$overall[1], sensitivity = CM_SVM_polynomial$byClass[1], 
+                        specificity = CM_SVM_polynomial$byClass[1]))
+```
+
+```{r SVM validation performance, echo = FALSE, warning = FALSE, message = FALSE}
+# testing performance on VALIDATION data
+# SVM linear - make predictions on validation set
+pred_valid <- predict(model_svm, newdata = svm_validation_set[,-ncol(svm_d)])  # make predictions with validation data
+# Confusion matrix
+CM_SVM_val <- confusionMatrix(pred_valid, svm_validation_set[,ncol(svm_d)], positive = '1') # the confusion matrix
+# Add results to table
+results <- rbind(results, 
+                 tibble(model = 'SVM', kernel = 'linear', data = 'validation_set', 
+                        accuracy = CM_SVM_val$overall[1], sensitivity = CM_SVM_val$byClass[1], 
+                        specificity = CM_SVM_val$byClass[1]))
+
+# SVM polynomial - make predictions on validation set
+pred_valid_poly <- predict(model_svm_poly, newdata = svm_validation_set[,-ncol(svm_d)])  # make predictions with validation data
+# Confusion matrix
+CM_SVM_val_poly <- confusionMatrix(pred_valid_poly, svm_validation_set[,ncol(svm_d)], 
+                              positive = '1') # the confusion matrix
+# Add results to table
+results <- rbind(results, 
+                tibble(model = 'SVM', kernel = 'polynomial', data = 'validation_set', 
+                accuracy = CM_SVM_val_poly$overall[1], sensitivity = CM_SVM_val_poly$byClass[1], 
+                specificity = CM_SVM_val_poly$byClass[1]))
+
+results %>% kable(caption = 'SVM Results')
+```
+
+### SVM Results
+
+The table *SVM Results* shows the results of the Linear and Polynomial SVM kernels when making predictions on the test set as well as on the validation set. The SVM kernels performed quite well in both test and validation sets, but the *Polynomial* kernel performed much better overall with accuracy of `r CM_SVM_val_poly$overall[1]` on the validation set. The linear kernel performed with accuracy of `r CM_SVM_val$overall[1]`. The table also includes information on the **sensitivity** (also known as Recall) which measures the ratio of actual positive cases that were correctly predicted and the **specificity** which displays the proportion of actual negative cases which were correctly predicted.
+
+Confusion matrix for the predictions for the validation set: 
+`r CM_SVM_val_poly`
+
+
+## eXtreme Gradient Boosting (XGBoost)
+
+XGBoost is an implementation of the Gradient Boosted Decision Trees algorithm. To solve our problem of classifying if a observation is fraud or not, XGBoost creates a set (an ensemble) of weak decision trees and combines these to train a strong learner model. We start the cycle by taking an existing model and computing the errors for every observation in the data. Next a new model is created to predict these errors. We add predictions from this error-predicting model to the "strong learner model". In order to make a prediction, we take all predictions from the previous models, compute the new errors from these predictions and build a next model. We then add it to the 'strong learner model'. So it is expected that the first predictions would be quite inaccurate, but as we train the model further it substantially improves the final models accuracy.
+
+To understand the basic concept behind the Xgboost model, suppose we have *K* trees, the model can be defined as: 
+
+$$\sum_{k=1}^{K} f_k$$
+
+where each $f_k$ is the prediction from a decision tree. The model is composed of a collection (ensemble) of decision trees. 
+
+The training objective is accomplished by making a prediction based on all decision trees:
+
+$$\hat{y} = \sum_{k=1}^{K} f_k(x_i)$$
+
+where $x_i$ is the feature vector for the i-th data point.
+
+Similarly, the prediction at the t-th step can be defined as
+
+$$\hat{y}_{i}^{(t)} = \sum_{k=1}^{t} f_k(x_i)$$
+
+The trees are composed of *internal nodes* which splits the data points by one of the features (the condition on the edge specifies what data can flow through) and *leaves* where data points which reach a leaf will receive a weight (the prediction).
+
+
+### Data preparation and value imputation
+
+We observed that cases where isFraud is set to 1, for the most part also have *oldbalanceOrig* == 0 and  *newbalanceOrig* == 0. We include a NA value on these cases to increase the separation between legitimate and fraudulent transactions. This was not useful for the SVM since it does not operate with observations with NA values (can't compute distances between a vector/data_point and a 'NA' object), but the XGBoost model does since one of the nodes of the tree could be based on a value or NA to choose a left or right branch on that tree.  The larger the number of such distinctions on our data the higher the chances to make better predictions.
+
+```{r create validation set at 10% ratio, echo = FALSE, message = FALSE, warning=FALSE}
+
+# A way to improve the ML training would be to replace these values with NA.
+
+# replacing with NA's where there is a high chance of fraud
+# filter the dataframe, then select the columns to update, lastly define the desired value (NA)
+X[which( X$oldbalanceOrig == 0 & X$newbalanceOrig == 0 & X$amount != 0 ), 
+  names(X) %in% c('oldbalanceOrig','newbalanceOrig') ] <- NA
+
+# Setting a fixed see to enable reproducibility of the results.
+# Join X and Y to make a balanced split of the data for validation set. Force all features to numeric type.
+d <- cbind(X,isFraud = Y)
+d <- d %>% mutate(step = as.numeric(step),
+                 type = as.numeric(type),
+                 isFraud = as.numeric(isFraud))
+
+# Setting a fixed seed to enable reproducibility of the results.
+set.seed(1, sample.kind = 'Rounding') # if using R 3.5 or earlier, use `set.seed(1)`
+
+# Create a index with 10 % of the raw PaySim data
+validation_index <- createDataPartition(y = d$isFraud, times = 1, p = 0.1, list = FALSE)
+
+# use the index to create the validation set and validation labels
+validation_set <- d[ validation_index, ]
+# use the opposite of the index to create our dataset with 90% of the raw data
+paysim <- d[ -validation_index, ]
+
+# Optimize resources by removing objects from memory
+rm(d)
+```
+
+```{r Building the train and test sets, echo = FALSE, message = FALSE, warning=FALSE}
+# In order to replicate the results here, you need to set the seed to 1.
+set.seed(1, sample.kind = 'Rounding')
+
+# Create a index for the test set
+test_index <- createDataPartition(y = paysim$isFraud, times = 1, p = 0.2, list = FALSE)
+# Create the sets using the index, 20% of the PaySim data for testing, train data is 80%
+train_set <- paysim[ -test_index, ] # here we have the inverse of the index 
+test_set <- paysim[ test_index, ] 
+```
+
+Confirming that all values have numeric format: 
+```{r}
+# Get all the data types from the columns in the data using sapply() function
+sapply(paysim, class)
+```
+
+
+
+### Xgboost Parameters
+
+The first parameter we need to set is the objective of the learning task. Since we have a single binary class (fraud or not-fraud) we will select the *binary:logistic*, which employs logistic regression and its output is the probability of the outcome. Output value larger than 0.5 is considered 1, and 0 otherwise. Secondly we define the evaluation method, *error* uses a binary classification error rate. It is calculated as #(wrong cases)/#(all cases). 
+
+For the predictions, the evaluation will regard the instances with prediction value larger than 0.5 as positive instances, and the others as negative instances. Next we set *max_depth* for the learning tree, increasing this value will make the model more complex and more likely to overfit, making the model perform extremely well on known data but pooly on new data. Training a deep tree will aggressively consume memory. Range [0,$\infty$]. The parameter *ETA*, also known as "learning_rate", is the step size shrinkage used in update to prevent overfitting. After each boosting step, we can directly get the weights of new features, and eta shrinks the feature weights to make the boosting process more conservative. The *colsample_bytree* is the subsample ratio of columns when constructing each tree. Subsampling occurs once for every tree constructed. Parameter *subsample* defines the ratio of the training instances. Setting it to 0.5 means that XGBoost would randomly sample half of the training data prior to growing trees, this will prevent overfitting. Subsampling will occur once in every boosting iteration and its range: is [0,1].
+
+The XGBoost has a cross-validation function that help us to fine tune the nrounds (numer of iterations) to achieve better results.
+
+
+### xgb.cv: Cross Validation function of xgboost
+
+----------------------------------------------
+
+We will use cross-validation to find the optimal value of the *nrounds* parameter, here we find the settings.
+
+*data* takes an xgb.DMatrix, matrix, or dgCMatrix as the input.
+
+*nfold* the original dataset is randomly partitioned into n-fold equal size subsamples.
+
+*nrounds* the max number of iterations
+
+*Maximize* If feval and early_stopping_rounds are set, then this parameter must be set as well. When it is TRUE, it means the larger the evaluation score the better. This parameter is passed to the cb.early.stop callback.
+
+----------------------------------------------
+
+
+```{r train xgboost}
+### XGB MODEL
+
+# Converting train and test into xgb.DMatrix format
+Dtrain <- xgb.DMatrix(
+        data = as.matrix(train_set[, !names(train_set) %in% c('isFraud')]), 
+        label = train_set$isFraud)
+Dtest <- xgb.DMatrix(
+         data = as.matrix(test_set[, !names(test_set) %in% c('isFraud')]),
+        label = test_set$isFraud)
+
+# Model Building: XGBoost
+param_list = list(
+  objective = "binary:logistic",
+  eval_metric = 'error', 
+  eta = 1,
+  gamma = 1,
+  max_depth = 3,
+  subsample = 0.8,
+  colsample_bytree = 0.5)
+  
+# # 5-fold cross-validation to 
+# # find optimal value of nrounds
+# set.seed(1)  # Setting seed
+
+# # Cross-validation to determine the best
+# # parameter for nrounds
+# xgbcv = xgb.cv(params = param_list, 
+#                data = Dtrain, 
+#                nrounds = 300, 
+#                nfold = 5, 
+#                print_every_n = 10, 
+#                early_stopping_rounds = 10, 
+#                metrics = list('error'),
+#                maximize = F)
+
+# xgbcv
+
+# In order to replicate the results here, you need to set the seed to 1.
+set.seed(1, sample.kind = 'Rounding')
+
+# Training XGBoost model at nrounds = 100
+xgb_model = xgb.train(data = Dtrain, 
+                      params = param_list, 
+                      nrounds = 21)   # 21 best value from Cross-Valid
+```
+
+The prefered format for the input data is xgb.DMatrix, so we start out by converting our data to this format. Next we determine all the initial parameters and call the xgb.cv() function. With the nrounds defined we are finally able to train the model. After the training we can view the information by typing the name of the model on the console:  `r xgb_model`
+
+```{r xgboost model info, include = FALSE}
+# Display Xgb model info
+xgb_model
+```
+
+It is possible to visually inspect the importance of each feature by calling the *xgb.plot.importance()* function. The figure *XGBoost feature importance plot* has the output of this function.  
+
+```{r importance xgboost, echo = FALSE, warning = FALSE, message = FALSE, fig.cap='XGBoost feature importance plot' }
+# Name of the features used by the model
+names <- dimnames(Dtrain)[[2]]
+
+# Importance of the features (variables) for the model
+var_imp = xgb.importance( feature_names = names, 
+             model = xgb_model)
+
+# Plot the variable importance
+xgb.plot.importance(var_imp)
+```
+
+```{r tree xgboost, include = FALSE, echo = FALSE, fig.cap='Structure of the first tree of the XGBoost model'}
+# Display the first tree
+xgb_tree <- xgb.plot.tree(model = xgb_model, trees = 0, 
+                          show_node_id = TRUE, render = FALSE)
+# # show the first tree of the model
+# xgb_tree
+library(DiagrammeR)
+# export to pdf
+export_graph(xgb_tree, 'tree.pdf')
+# knitr::include_graphics('tree.pdf')
+```
+
+To make predictions we will use the *predict()* function with the model name and the data to use. We will make predictions for the test set and also for the validation set.
+
+```{r make predictions, warning = FALSE, message = FALSE, echo = FALSE}
+
+################## TEST SET ##################
+# Make predictions on test data
+predictions <- predict(xgb_model, Dtest)
+
+# Compute classification error
+test_error <- mean(as.numeric(predictions > 0.5) != test_set$isFraud)
+print(paste('Test error: ', format(test_error*100, scientific = FALSE, digits = 5), '%'))
+
+xgb_test <- mean(as.numeric(predictions > 0.5) == test_set$isFraud)
+
+################################################################
+# Calculate the Confusion Matrix (validation set)
+pred_xgb <- ifelse(predictions > 0.5, 1, 0)
+pred_xgb <- factor(pred_xgb, levels = c(0,1))
+CM_xgb <- confusionMatrix(pred_xgb,   # predictions from model
+                          factor(test_set$isFraud,  # labels to compare
+                          levels = c(0,1)),  # levels of the label
+                          positive = '1')   # positive variable
+
+# Add results to table
+results <- rbind(results, 
+                tibble(model = 'XGBoost', kernel = 'binary:logistic', data = 'test_set', 
+                accuracy = CM_xgb$overall[1], sensitivity = CM_xgb$byClass[1], 
+                specificity = CM_xgb$byClass[1]))
+
+
+
+
+################### VALIDATION SET ###############################
+# validation set performance:
+Val_data <- xgb.DMatrix(
+         data = as.matrix(validation_set[, !names(validation_set) %in% c('isFraud')]),
+            label = validation_set$isFraud)
+
+# Make predictions on validation data
+val_pred <- predict(xgb_model, Val_data)
+
+# Compute classification error
+val_error <- mean( as.numeric(val_pred > 0.5) != validation_set$isFraud )
+print(paste('Validation error', format(val_error*100, scientific = FALSE, digits = 5), '%'))
+
+xgb_accuracy <- mean(as.numeric(val_pred > 0.5) == validation_set$isFraud)
+
+################################################################
+# Calculate the Confusion Matrix (validation set)
+pred_xgb_val <- ifelse(val_pred > 0.5, 1, 0)
+pred_xgb_val <- factor(pred_xgb_val, levels = c(0,1))
+CM_xgb_val <- confusionMatrix(pred_xgb_val,      # predictions from model validations set
+                              factor(validation_set$isFraud, # actual values to compare
+                                     levels = c(0,1)),   # levels of the legend
+                              positive = '1')     # the positive class
+
+# Add results to table
+results <- rbind(results, 
+                tibble(model = 'XGBoost', kernel = 'binary:logistic', data = 'validation_set', 
+                accuracy = CM_xgb_val$overall[1], sensitivity = CM_xgb_val$byClass[1], 
+                specificity = CM_xgb_val$byClass[1]))
+
+# table with only xgb results:
+xgb_results <- results[6:7,] %>% kable(caption = 'XGBoost Results')
+
+all_results <- results %>% kable(caption = 'SVM and XGBoost Results')
+
+```
+
+
+To measure the performance of the XGBoost model, we can compute the average error: "as.numeric(pred > 0.5)" applies the rule that if the probability is > 0.5, then the observation is classified as 1 and 0 otherwise. Use the "!=" to compare the vectors and the "mean()" to calculate the average error itself. 
+
+    mean(as.numeric(predictions > 0.5) != test_set$isFraud )
+
+The algorithm does not use the test_set data during the construction of the model. When making classifications we can do a regression to the *isFraud* label and use a threshold (0.5). We finally calculate the Confusion Matrix to evaluate the performance of the 
+
+### XGBoost results
+
+The final performance results for the XGBoost model can be seen on the table *XGBoost Results*. `r xgb_results`
+
+
+# Overall Results
+
+No that we have downloaded, decompressed, loaded to the memory, explored, created visualizations, and applied two machine learning models, it is time to see all the results in one place. The table *SVM and XGBoost Result* brings it all together. `r all_results`
+
+Even though both models performed extremely well, the XGBoost ended up at the podium with flying colors. It is worth remembering that the SVM model was trained on a much smaller dataset since we down-sampled the majority class observations to match the number of the minority class and scored with accuracy on the validation data above 90%.  The XGBoost algorithm actually was able to be trained using all the available training data without need to down-sample and performed extremely well.
+
+
+# Conclusion
+
+The motivation behind choosing the PaySim dataset as starting point to this project was *find a real world problem and try to solve it*.  Up to this date Financial Crimes such as Fraud impacts Merchants and Consumers alike, since the first will eventually raise the cost of their products/services to cover financial losses. I am quite pleased with the results achieved here.  As final remarks, it is useful to know that training models on datasets with millions of observations can take a long time and it helps to reduce the size of the data to figure initial parameters and testing how models work can be a time saver.  Specially when dealing with large datasets and working on a single computer with i5 processor and 8GB RAM.  This project has been a great joy and motivation to keep learning R programming and exploring new package and resources.  I look forward to exploring other machine learning challenges with other datasets for deepen my skill set. 
+
+
+# Acknowledgment
+
+I would like to thank Prof. Rafael A Irizarry for the great class content throughout all the modules: R Basics, Visualization,  Probability, Inference and Modeling, Productivity Tools, Data Wrangling, Linear Regression, Machine Learning and, the last one, Data Science: Capstone.  I also would like to thank my student peers during this amazing Data Science Professional Certificate journey.
+
+
+
+# Reference
+
+*   E. A. Lopez-Rojas, A. Elmir, and S. Axelsson. 
+    
+    https://ntnuopen.ntnu.no/ntnu-xmlui/bitstream/handle/11250/2584265/2017+IJSPM+EDL+Final+version.pdf?isAllowed=y&sequence=2
+    "PaySim: A financial mobile money simulator for fraud detection". 
+    In: The 28th European Modeling and Simulation Symposium-EMSS, Larnaca, Cyprus. 2016
+    Kaggle has featured PaySim1 as dataset of the week of april 2018. See the full article: 
+    http://blog.kaggle.com/2017/05/01/datasets-of-the-week-april-2017/
+
+*   Nathaniel Lee
+
+    title: Credit card fraud will increase due to the Covid pandemic, experts warn
+    accessed on March, 26th, 2021 @ 9PM
+    https://www.cnbc.com/2021/01/27/credit-card-fraud-is-on-the-rise-due-to-covid-pandemic.html
+    
+*   Max Kuhn et. al.
+
+    Caret package
+    https://cran.r-project.org/web/packages/caret/caret.pdf
+
+*   David Meyer et. al.
+
+    e1071 package
+    https://cran.r-project.org/web/packages/e1071/e1071.pdf
+
+*   Tianqi Chen et. al.
+
+    https://cran.r-project.org/web/packages/xgboost/index.html
+    
+*   Statistical tools for high-throughput data analysis
+
+    title: ggplot2 axis scales and transformations
+    http://www.sthda.com/english/wiki/ggplot2-axis-scales-and-transformations
+    
+    
+*   Kaggle Winning Solution Xgboost Algorithm 
+
+    https://www.slideshare.net/ShangxuanZhang/kaggle-winning-solution-xgboost-algorithm-let-us-learn-from-its-author?from_action=save
