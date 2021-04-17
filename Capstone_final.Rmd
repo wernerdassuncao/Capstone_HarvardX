@@ -5,9 +5,7 @@ date: "`r Sys.Date()`"
 output:
   pdf_document: 
     toc: yes
-    dev: jpeg
-    keep_tex: yes
-    latex_engine: lualatex
+    dev: png
 ---
 
 ```{r config_chunk, echo = FALSE, warning=FALSE, message=FALSE}
@@ -525,7 +523,7 @@ On this dataset we have information about the balance for the origin and destina
 
 ## Visualizations
 
-Since our goal is to identify the fraud cases and we have learned from the data that only TRANSFER and CASH_OUT transactions are possible cases, we will filter the data to include only these observations. Next we will create vizualizations and try to 'see' a difference between legitimate and fraudulent transactions. Starting with the transaction amount, we have the plot *Dispersion of transactions over amount*. We can observe that the dispersion over amount is not conclusive given that the same values occur both in legitimate and fraudulent transactions. Worth noting the for fraud cases the amount seems restricted evenly between transfers and cash_outs in the lower range. On the other hand for legitimate transactions, cash_outs operations have very small amounts compared to the legitimate transfers.
+Since our goal is to identify the fraud cases and we have learned from the data that only TRANSFER and CASH_OUT transactions are possible cases, we will filter the data to include only these observations. Next we will create visualizations and try to 'see' a difference between legitimate and fraudulent transactions. Starting with the transaction amount, we have the plot *Dispersion of transactions over amount*. We can observe that the dispersion over amount is not conclusive given that the same values occur both in legitimate and fraudulent transactions. Worth noting the for fraud cases the amount seems restricted evenly between transfers and cash_outs in the lower range. On the other hand for legitimate transactions, cash_outs operations have very small amounts compared to the legitimate transfers.
 
 ```{r amount plot, echo = FALSE, warning = FALSE, fig.cap= 'Dispersion of transactions over amount'}
 #plot a custom graph with data from X and Y
@@ -580,7 +578,7 @@ ggplot(data = X, mapping = aes(factor(Y), balance_error_dest, color = factor(typ
 
 The difference between fraudulent and legitimate transactions can be also be observed by the correlation heatmap.  Heatmaps are great to analyse data because it translates the variation of the correlation values between the features. We will use a cluster heat map where the features are the rows and columns of a matrix. The higher values will receive a 'hot' color and lower values a 'cold' color. This hopefully will aid us in determining what features to focus on our machine learning model. 
 
-The package ComplexHeatmap provides great options to create customizeable heatmaps with many options. The figure *Heatmaps of correlations of transactions* display the level of correlation among the features. A correlation exposes the measure of dependence between two quantities, most broadly used is the Pearson correlation. A correlation coefficient of 1 is a perfect direct linear relationship, and -1 represents a perfect inverse correlation. The closer the value is to either -1 or 1 the stronger the correlation between the features. We can observe this on the forementioned heat map.
+The package ComplexHeatmap provides great options to create customizeable heatmaps with many options. The figure *Heatmaps of correlations of transactions* display the level of correlation among the features. A correlation exposes the measure of dependence between two quantities, the most broadly used is the Pearson correlation. A correlation coefficient of 1 is a perfect direct linear relationship, and -1 represents a perfect inverse correlation. The closer the coeficient value is to either -1 or 1 the stronger the correlation between the features. We can observe this on the aforementioned heat map.
 
 ```{r xfraud correlations}
 # compute the correlations ignoring the NA's: 'complete.obs'
@@ -618,7 +616,7 @@ The comparison of the heatmaps allows us to observe a stronger correlation betwe
 
 ## Data preparation
 
-The use the same source data for both use machine learning techniques to make our predictions. Considering the fact that Support Vector Machines and eXtreme Gradient Boosting algorithms *look at* and *process* the data differently we will adjust the train set to fit each individual model's requirements so that we can achieve our goal.  We will create a X, dataframe, that contains all features to be used during the training, testing and validation of the algorithm and Y, numeric vector, with the legend for all of these observations.
+We will use the same observations from the data on our machine learning techniques to make predictions. Considering the fact that Support Vector Machines and eXtreme Gradient Boosting algorithms *look at* and *process* the data differently we will adjust the train set to fit each individual model's requirements so that we can achieve our goal.  We will create a X, dataframe, that contains all features to be used during the training, testing and validation of the algorithm and Y, numeric vector, with the legend for all of these observations.
 
 The distribution of classes in the dataset is extremely important. There is an extreme skew on the data, meaning that from our two possible classes (fraud and not-fraud) over 99% of the data belongs to the majority class (not-fraud). For the SVM we will use a downSample() approach to create proportionally distributed sets from both classes and enhance performance (by reducing the number of fraud transactions) by reducing the computational cost. On the other hand the XGBoost by nature is much more suited to handle imbalanced data sets. More details about the models in the following sections.
 
