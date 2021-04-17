@@ -1,0 +1,13 @@
+title: "Capstone Project - Data Science Professional Certificate"
+author: "Werner Alencar Advincula Dassuncao"
+
+
+# Introduction
+
+Losses due to fraudulent payments have reached globally \$ 28.65 billion in 2019, according to the most recent *Nilson Report* data. The United States alone accounts for over a third of the worldwide loss. These numbers are quite high and estimates for the US in 2020 are somewhere around \$ 11 billion due to credit card fraud says *Julie Conroy*, research director for Aite Group's fraud and anti-money laundering practice. These fraud cases affect consumers, merchants and card issuers alike. The total of cost for credit card fraud extends far beyond the cost of the illegally purchased goods. So, being able to detect fraud before it happens is extremely important.
+
+Access to actual financial data for research outside corporations is blocked due to privacy. For this project we will work with a data set from *The Mobile Money Payment Simulation* which was a case study based on a real company that has developed a mobile money implementation that provides mobile phone users with the ability to transfer money between themselves using the phone as a sort of electronic wallet.  Edgar Alonso Lopez-Roza explains:  *"The development of PaySim covers two phases. During the first phase, we modeled and implemented a MABS (Multi Agent Based Simulation) that used the schema of the real mobile money service and generated synthetic data following scenarios that were based on predictions of what could be possible when the real system starts operating. During the second phase we got access to transactional financial logs of the system and developed a new version of the simulator which uses aggregated transactional data to generate financial information more alike the original source"*. 
+
+This project aims to generate a machine learning model to predict if a transaction is fraudulent. Before we can talk about machine learning we need to explore, summarize and graph the data with the objective of learning about possible patterns and/or correlation between the variables. Secondly, we will look into the available predicting candidates (features).  For this project our target variable will point if a observation is fraud or not.
+
+Next will dive into two models for the machine learning section. The first will be Support Vector Machines (SVM) where we will deploy linear and polynomial kernels, and, the later, eXtreme Gradient Boosting (xgboost). These models will be trained using our train set, tested with the test set, and finally their performance will be "double-checked" on our final hold-out validation set.
